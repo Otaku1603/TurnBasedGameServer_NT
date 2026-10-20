@@ -1,0 +1,46 @@
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+dependency-reduced-pom.xml
+
+# ---- 生成代码（protobuf）----
+src/main/java/**/proto/
+**/generated-sources/
+
+# ---- 配置与密钥（严禁提交）----
+.env
+.env.local
+*.local.properties
+application-local.yml
+application-local.properties
+
+# ---- 日志 ----
+logs/
+*.log
+*.log.*
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Python 脚本 ----
+*.py
+__pycache__/
+*.pyc
+
+# ---- 文档目录 ----
+docs/

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head th:replace="~{admin/fragments :: head('战斗记录')}"></head>
+<body>
+<th:block th:replace="~{admin/fragments :: sidebar('battles')}"></th:block>
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1 class="page-title">战斗记录</h1>
+        <span class="text-muted">共 <b th:text="${battles['total']}"></b> 场</span>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>战场 ID</th><th>P1</th><th>P2</th><th>胜者</th>
+                    <th>结束原因</th><th>回合</th><th>时长</th><th>类型</th><th>归属节点</th><th>时间</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="b : ${battles['items']}">
+                    <td><code th:text="${b['battleId']}"></code></td>
+                    <td th:text="${b['player1Nickname']}"></td>
+                    <td th:text="${b['player2Nickname']}"></td>
+                    <td>
+                        <span class="badge bg-primary"
+                              th:text="${b['winnerId']} == ${b['player1Id']} ? ${b['player1Nickname']} : ${b['player2Nickname']}"></span>
+                    </td>
+                    <td th:text="${b['endReason']}"></td>
+                    <td th:text="${b['totalRounds']}"></td>
+                    <td><span th:text="${b['duration']}"></span>s</td>
+                    <td>
+                        <span class="badge bg-warning text-dark" th:if="${b['crossNode']}">跨服</span>
+                        <span class="badge bg-secondary" th:if="${!b['crossNode']}">本服</span>
+                    </td>
+                    <td><code th:text="${b['homeNode']}"></code></td>
+                    <td th:text="${b['startTime']}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(battles['items'])}">
+                    <td colspan="10" class="text-center text-muted">暂无对局</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex justify-content-between" style="background:#fff;">
+            <a class="btn btn-sm btn-outline-secondary"
+               th:href="@{'/admin/battles?page=' + ${battles['page'] - 1}}"
+               th:classappend="${battles['page']} == 0 ? 'disabled'">上一页</a>
+            <span class="text-muted">第 <span th:text="${battles['page'] + 1}"></span> 页</span>
+            <a class="btn btn-sm btn-outline-secondary"
+               th:href="@{'/admin/battles?page=' + ${battles['page'] + 1}}"
+               th:classappend="${(battles['page'] + 1) * battles['size']} >= ${battles['total']} ? 'disabled'">下一页</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

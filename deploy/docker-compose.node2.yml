@@ -1,0 +1,38 @@
+# ============================================================
+# TurnBasedGameServer_NT — VM2（跨机游戏节点 node-c2）
+#   有状态层（MySQL/Redis/Kafka）在 VM1: 10.244.216.57
+#   前置：Docker 已装；tbg-server:latest 镜像已 load
+#   启动：docker compose -f deploy/docker-compose.node2.yml --env-file deploy/.env up -d
+#   端口映射对齐 VM1 Nginx 上游：8082/8083/9511
+#
+#   口令一律经环境变量注入（值放 deploy/.env，已 gitignore；模板见 .env.example）
+# ============================================================
+
+services:
+  node2:
+    image: tbg-server:latest
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: "${DB_HOST:-10.244.216.57}"
+      DB_PORT: "3306"
+      DB_NAME: "${DB_NAME:-turn_based_game_nt}"
+      DB_USER: "${DB_USER:-tbg_nt}"
+      DB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD required (see .env.example)}"
+      SPRING_DATASOURCE_USERNAME: "${DB_USER:-tbg_nt}"
+      SPRING_DATASOURCE_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD required (see .env.example)}"
+      REDIS_HOST: "${REDIS_HOST:-10.244.216.57}"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD required (see .env.example)}"
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET required (see .env.example)}"
+      NODE_ID: node-c2
+      # 集群部署开启严格配置审计（缺 JWT/DB 口令/NODE_ID 即拒绝启动）
+      APP_STRICT_CONFIG: "true"
+      APP_PORT: "8080"
+      MANAGEMENT_PORT: "8081"
+      NETTY_WS_PORT: "9510"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: 10.244.216.57:9094
+      SPRING_MODULITH_EVENTS_EXTERNALIZATION_ENABLED: "true"
+    ports:
+      - "8082:8080"
+      - "9511:9510"
+    restart: on-failure

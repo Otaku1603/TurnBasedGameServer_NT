@@ -1,0 +1,127 @@
+# ============================================================
+# TurnBasedGameServer_NT 应用配置
+# 所有敏感/环境相关项一律走环境变量（见 .env.example），仓库内不落明文密钥。
+# ============================================================
+
+server:
+  port: ${APP_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: ${APP_NAME:turn-based-game-server-nt}
+  profiles:
+    active: ${APP_PROFILE:local}
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  threads:
+    virtual:
+      enabled: true          # Java 25 虚拟线程：承载阻塞式 DB/IO，Netty 事件循环只做网络
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:turn_based_game_nt}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: ${DB_USER:tbg_nt}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: nt-hikari
+      maximum-pool-size: 16
+      minimum-idle: 4
+      connection-timeout: 5000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # Spring Modulith 事件发布注册表（事务性发件箱）
+  modulith:
+    events:
+      republish-outstanding-events-on-startup: true
+    validate-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+      timeout: 2s
+      connect-timeout: 2s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 1
+
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+
+  thymeleaf:
+    cache: false
+
+# ---------- MyBatis-Plus ----------
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      update-strategy: not_null
+      insert-strategy: not_null
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.game.nt
+
+# ---------- 可观测 ----------
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8081}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ---------- 业务自定义 ----------
+app:
+  # 启动配置审计（S5/C3）：true 时，JWT/DB 口令/NODE_ID 未显式配置将拒绝启动。
+  # 集群 compose 已设 APP_STRICT_CONFIG=true；本地裸跑保持 false（仅告警）。
+  strict-config: ${APP_STRICT_CONFIG:false}
+  netty:
+    ws-port: ${NETTY_WS_PORT:9510}
+    use-proxy-protocol: ${NETTY_USE_PROXY_PROTOCOL:false}
+    worker-threads: ${NETTY_WORKER_THREADS:4}
+    max-frame-length: ${NETTY_MAX_FRAME_LENGTH:65536}
+    reader-idle-seconds: ${NETTY_READER_IDLE_SECONDS:30}
+    writer-idle-seconds: ${NETTY_WRITER_IDLE_SECONDS:0}
+    # 慢消费者背压水位
+    write-buffer-low-water-mark: 32768
+    write-buffer-high-water-mark: 65536
+  jwt:
+    secret: ${JWT_SECRET:dev-only-insecure-secret-please-change-me-0123456789abcdef}
+    expire-hours: ${JWT_EXPIRE_HOURS:24}
+  redis:
+    allow-degrade: ${REDIS_ALLOW_DEGRADE:true}
+  cluster:
+    node-id: ${NODE_ID:}                 # 缺省自动取 进程名 派生，多实例不冲突
+    route-ttl-hours: 6
+    battle-ttl-hours: 24
+    node-ttl-seconds: 30
+    heartbeat-interval-ms: 10000
+  lua:
+    # 战斗公式脚本（classpath 相对路径），支持管理端热更新
+    script-path: ${LUA_SCRIPT_PATH:lua/damage_formulas.lua}
+  battle:
+    reconnect-timeout-seconds: ${BATTLE_RECONNECT_TIMEOUT_SECONDS:120}
+    waiting-timeout-seconds: ${BATTLE_WAITING_TIMEOUT_SECONDS:30}
+    # 回合内操作时限：超时判负（在线挂机也推进对局；客户端倒计时同源语义）
+    turn-timeout-seconds: ${BATTLE_TURN_TIMEOUT_SECONDS:30}

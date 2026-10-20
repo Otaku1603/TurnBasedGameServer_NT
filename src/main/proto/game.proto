@@ -1,0 +1,269 @@
+syntax = "proto3";
+
+package game.nt.v1;
+
+option java_package = "com.game.nt.proto";
+option java_outer_classname = "GameProto";
+option csharp_namespace = "GameClient.Proto";
+option optimize_for = LITE_RUNTIME;
+
+// ============================================================
+// 协议 v2（相对原项目 game.proto 的破坏性改进）
+//   1. 所有枚举首值 = 0 且为 UNSPECIFIED，避免 proto3 默认值误命中 LOGIN
+//   2. GameMessage 增加 version / requestId / traceId，支持版本协商与请求-响应关联
+//   3. actionType / endReason 由裸 int / string 改为强类型枚举
+//   4. 字段号分区保留，新增仅追加，不复用旧号（向后兼容规范）
+// ============================================================
+
+// 消息类型
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0; // 禁止依赖默认值，未设置即为非法
+
+  HEARTBEAT = 1;                // 心跳（双向）
+  ERROR = 2;                    // 统一错误响应
+
+  LOGIN = 10;                   // 登录（客户端→服务端）
+  LOGIN_RESPONSE = 11;
+
+  MATCH_REQUEST = 20;           // 请求匹配
+  MATCH_CANCEL = 21;            // 取消匹配
+  MATCH_SUCCESS = 22;           // 匹配成功（推送）
+
+  BATTLE_READY = 30;            // 准备就绪
+  BATTLE_START = 31;            // 战斗开始（推送）
+  BATTLE_ACTION = 32;           // 战斗操作
+  BATTLE_UPDATE = 33;           // 战斗状态更新（推送）
+  BATTLE_END = 34;              // 战斗结束（推送）
+  BATTLE_SURRENDER = 35;        // 投降
+  BATTLE_REJOIN = 36;           // 断线重连请求
+  BATTLE_REJOIN_RESPONSE = 37;  // 断线重连响应
+
+  MAIL_NOTIFY = 40;             // 新邮件提醒（服务端推送，仅带未读数）
+  CHAT_PUSH = 41;               // 聊天消息实时推送
+
+  ANNOUNCEMENT_PUSH = 42;       // 公告推送
+  FRIEND_REQUEST = 43;          // 好友申请提醒
+}
+
+// 战斗操作类型（替代裸 int 的 actionType）
+enum ActionType {
+  ACTION_TYPE_UNSPECIFIED = 0;
+  USE_SKILL = 1;
+  DEFEND = 2;
+  USE_ITEM = 3;
+}
+
+// 战斗结束原因（替代 string 的 endReason）
+enum EndReason {
+  END_REASON_UNSPECIFIED = 0;
+  DEFEAT = 1;          // 击败对手
+  SURRENDER = 2;       // 投降
+  TIMEOUT = 3;         // 回合超时
+  DISCONNECT = 4;      // 断线判负
+  OPPONENT_LEFT = 5;   // 对手离开
+}
+
+// 统一错误码（A1 起所有失败回包都带上）
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  OK = 1;
+  UNAUTHORIZED = 2;        // 未登录/令牌无效
+  FORBIDDEN = 3;           // 越权
+  INVALID_ARGUMENT = 4;
+  NOT_FOUND = 5;
+  CONFLICT = 6;            // 状态冲突（如重复结算）
+  RATE_LIMITED = 7;
+  INTERNAL = 8;
+}
+
+// ========== 通用包装器 ==========
+
+message GameMessage {
+  // ---- 信封字段（所有消息通用）----
+  int32 version = 1;        // 协议版本，服务端用于兼容判断
+  int64 requestId = 2;      // 请求关联 ID；0 表示服务端主动推送
+  MessageType type = 3;     // 消息类型
+  string traceId = 4;       // 链路追踪 ID（服务端回填）
+  string token = 5;         // JWT；仅 LOGIN 使用，业务消息一律以会话身份为准（不信任客户端上报的 userId）
+
+  // ---- 请求体（按 type 单选）----
+  LoginRequest loginRequest = 10;
+  Heartbeat heartbeat = 11;
+  MatchRequest matchRequest = 12;
+  MatchCancelRequest matchCancelRequest = 13;
+  BattleReadyRequest battleReadyRequest = 14;
+  BattleActionRequest battleActionRequest = 15;
+  BattleSurrenderRequest battleSurrenderRequest = 16;
+  BattleRejoinRequest battleRejoinRequest = 17;
+
+  // ---- 响应/推送体（按 type 单选）----
+  LoginResponse loginResponse = 30;
+  ErrorResponse errorResponse = 31;
+  HeartbeatResponse heartbeatResponse = 32;
+  MatchSuccessResponse matchSuccessResponse = 33;
+  BattleStartResponse battleStartResponse = 34;
+  BattleUpdateResponse battleUpdateResponse = 35;
+  BattleEndResponse battleEndResponse = 36;
+  BattleRejoinResponse battleRejoinResponse = 37;
+  MailNotify mailNotify = 40;       // 新邮件提醒（推送）
+  ChatPush chatPush = 41;           // 聊天实时推送
+  AnnouncementPush announcementPush = 42; // 公告推送
+  FriendRequestPush friendRequestPush = 43; // 好友申请提醒（推送）
+
+  reserved 44 to 59; // 预留
+}
+
+// ========== 邮件 ==========
+
+// 新邮件提醒（轻量推送；邮件详情/领取走 HTTP 接口）
+message MailNotify {
+  int32 unreadCount = 1;
+}
+
+// ========== 聊天 ==========
+
+message ChatPush {
+  string channel = 1;    // WORLD / GUILD / PRIVATE
+  int64 fromId = 2;
+  string fromName = 3;
+  string content = 4;
+  int64 serverTime = 5;
+}
+
+// ========== 公告 ==========
+
+message AnnouncementPush {
+  int64 id = 1;
+  string title = 2;
+  string content = 3;
+}
+
+// ========== 好友申请提醒 ==========
+
+message FriendRequestPush {
+  int64 fromId = 1;
+  string fromName = 2;
+}
+
+// ========== 基础消息 ==========
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  bool success = 1;
+  string message = 2;
+  int64 userId = 3;
+  string token = 4;
+}
+
+message ErrorResponse {
+  ErrorCode code = 1;
+  string message = 2;
+  int64 requestId = 3; // 回填，便于客户端定位是哪条请求失败
+}
+
+message Heartbeat {
+  int64 clientTime = 1; // 客户端发送时刻（毫秒）
+}
+
+message HeartbeatResponse {
+  int64 clientTime = 1; // 原样回填，客户端据此算 RTT
+  int64 serverTime = 2;
+}
+
+message MatchRequest {
+  // 不再携带 userId：身份一律取自会话（A1）
+}
+
+message MatchCancelRequest {
+}
+
+message MatchSuccessResponse {
+  string battleId = 1;
+  PlayerInfo opponent = 2;
+}
+
+message PlayerInfo {
+  int64 userId = 1;
+  string nickname = 2;
+  int32 eloRating = 3;
+}
+
+// ========== 战斗 ==========
+
+message BattleReadyRequest {
+  string battleId = 1;
+}
+
+message BattleActionRequest {
+  string battleId = 1;
+  ActionType actionType = 2; // 强类型，替代裸 int
+  int32 paramId = 3;         // 技能 ID / 道具 ID（防御填 0）
+}
+
+message BattleSurrenderRequest {
+  string battleId = 1;
+}
+
+message BattleRejoinRequest {
+  // 不再携带 userId：身份取自会话
+}
+
+message BattlePlayerData {
+  int64 userId = 1;
+  string nickname = 2;
+  int32 maxHp = 3;
+  int32 currentHp = 4;
+  int32 attack = 5;
+  int32 defense = 6;
+  bool isAlive = 7;
+  map<int32, int32> cooldowns = 8;   // skillId -> 剩余冷却回合
+  repeated int32 ownedSkillIds = 9;  // 已学技能；可用技能 = ownedSkillIds - cooldowns.keys
+}
+
+message BattleStartResponse {
+  string battleId = 1;
+  BattlePlayerData player1 = 2;
+  BattlePlayerData player2 = 3;
+  int64 currentActorUserId = 4;
+  int32 currentRound = 5;
+}
+
+message BattleUpdateResponse {
+  string battleId = 1;
+  int32 currentRound = 2;
+  int64 actorUserId = 3;
+  int32 skillId = 4;
+  string skillName = 5;
+  int64 targetUserId = 6;
+  int32 damage = 7;
+  int32 heal = 8;
+  BattlePlayerData player1 = 10;
+  BattlePlayerData player2 = 11;
+  int64 nextActorUserId = 12;
+  string description = 13;
+  ActionType actionType = 14; // 供客户端驱动动画，替代中文字符串判断
+}
+
+message BattleEndResponse {
+  string battleId = 1;
+  int64 winnerId = 2;
+  int64 loserId = 3;
+  EndReason endReason = 4; // 强类型
+  int32 totalRounds = 5;
+  BattlePlayerData player1 = 10;
+  BattlePlayerData player2 = 11;
+}
+
+message BattleRejoinResponse {
+  bool success = 1;
+  string message = 2;
+  string battleId = 3;
+  int32 currentRound = 4;
+  int64 currentActorUserId = 5;
+  BattlePlayerData player1 = 10;
+  BattlePlayerData player2 = 11;
+}

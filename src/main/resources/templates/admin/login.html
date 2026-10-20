@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head th:replace="~{admin/fragments :: head('登录')}"></head>
+<body>
+<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+    <div class="card" style="width: 380px;">
+        <div class="card-header">
+            <span><i class="bi bi-shield-lock"></i> 游戏管理后台</span>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-danger py-2" th:if="${error}" th:text="${error}"></div>
+            <form method="post" action="/admin/login">
+                <div class="mb-3">
+                    <label class="form-label">管理员账号</label>
+                    <input type="text" class="form-control" name="username" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">登 录</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
