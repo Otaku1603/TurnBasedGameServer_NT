@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head th:replace="~{admin/fragments :: head('玩家管理')}"></head>
+<body>
+<th:block th:replace="~{admin/fragments :: sidebar('users')}"></th:block>
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1 class="page-title">玩家管理</h1>
+        <span class="text-muted">共 <b th:text="${users['total']}"></b> 名玩家</span>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>ID</th><th>账号</th><th>昵称</th><th>Elo</th>
+                    <th>金币</th><th>胜/总</th><th>状态</th><th>操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="u : ${users['items']}">
+                    <td th:text="${u['id']}"></td>
+                    <td th:text="${u['username']}"></td>
+                    <td th:text="${u['nickname']}"></td>
+                    <td th:text="${u['eloRating']}"></td>
+                    <td th:text="${u['gold']}"></td>
+                    <td th:text="${u['winCount']} + '/' + ${u['totalBattles']}"></td>
+                    <td>
+                        <span class="badge bg-success" th:if="${u['status']} == 1">正常</span>
+                        <span class="badge bg-danger" th:if="${u['status']} == 0">封禁</span>
+                    </td>
+                    <td>
+                        <form th:if="${u['status']} == 1" method="post"
+                              th:action="@{'/admin/users/' + ${u['id']} + '/ban'}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('确认封禁该玩家？')">封禁</button>
+                        </form>
+                        <form th:if="${u['status']} == 0" method="post"
+                              th:action="@{'/admin/users/' + ${u['id']} + '/unban'}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-success">解封</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex justify-content-between" style="background:#fff;">
+            <a class="btn btn-sm btn-outline-secondary"
+               th:href="@{'/admin/users?page=' + ${users['page'] - 1}}"
+               th:classappend="${users['page']} == 0 ? 'disabled'">上一页</a>
+            <span class="text-muted">第 <span th:text="${users['page'] + 1}"></span> 页</span>
+            <a class="btn btn-sm btn-outline-secondary"
+               th:href="@{'/admin/users?page=' + ${users['page'] + 1}}"
+               th:classappend="${(users['page'] + 1) * users['size']} >= ${users['total']} ? 'disabled'">下一页</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head th:replace="~{admin/fragments :: head('战斗公式')}"></head>
+<body>
+<th:block th:replace="~{admin/fragments :: sidebar('lua')}"></th:block>
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1 class="page-title">战斗公式（Lua 热更）</h1>
+        <span>
+            战斗公式 <code th:text="${lua['scriptPath']}"></code>
+            <span class="badge" th:classappend="${lua['ready']} ? 'bg-success' : 'bg-danger'"
+                  th:text="${lua['ready']} ? '就绪' : '未加载'"></span>
+            &nbsp;|&nbsp; 匹配策略 <code th:text="${lua['matchScriptPath']}"></code>
+            <span class="badge" th:classappend="${lua['matchReady']} ? 'bg-success' : 'bg-danger'"
+                  th:text="${lua['matchReady']} ? '就绪' : '未加载'"></span>
+        </span>
+    </div>
+
+    <div class="alert py-2" th:if="${reloadResult}"
+         th:classappend="${reloadResult.startsWith('热更新成功')} ? 'alert-success' : 'alert-danger'"
+         th:text="${reloadResult}"></div>
+
+    <div class="card">
+        <div class="card-header"><span>粘贴新版脚本（留空则从 classpath 重新加载）</span></div>
+        <div class="card-body">
+            <form method="post" action="/admin/lua/reload">
+                <div class="mb-3">
+                    <label class="form-label">目标脚本</label>
+                    <select class="form-select" name="target" style="max-width: 240px;">
+                        <option value="combat" selected>战斗公式（lua/damage_formulas.lua）</option>
+                        <option value="match">匹配策略（lua/match_strategy.lua）</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <textarea class="form-control font-monospace" name="script" rows="14"
+                              style="font-size: 0.85rem;"
+                              placeholder="-- 留空 = 从 classpath 重新加载所选脚本&#10;function match_range(waited_seconds) ... end"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-arrow-repeat"></i> 校验并热更
+                </button>
+                <span class="text-muted ms-2">沙箱会剥离 os/io/package 等危险全局；校验失败自动保留旧脚本</span>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

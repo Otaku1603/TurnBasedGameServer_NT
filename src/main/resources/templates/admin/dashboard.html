@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head th:replace="~{admin/fragments :: head('控制台')}"></head>
+<body>
+<th:block th:replace="~{admin/fragments :: sidebar('dashboard')}"></th:block>
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1 class="page-title">控制台</h1>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <i class="bi bi-people-fill"></i>
+                <div>
+                    <div class="stat-value" th:text="${stats['users']}">0</div>
+                    <div class="stat-label">注册玩家</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <i class="bi bi-broadcast"></i>
+                <div>
+                    <div class="stat-value" th:text="${stats['online']}">0</div>
+                    <div class="stat-label">本节点在线</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <i class="bi bi-swords"></i>
+                <div>
+                    <div class="stat-value" th:text="${stats['battleRecords']}">0</div>
+                    <div class="stat-label">累计对局</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <i class="bi bi-hourglass-split"></i>
+                <div>
+                    <div class="stat-value" th:text="${stats['matchQueue']}">0</div>
+                    <div class="stat-label">匹配队列</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header"><span><i class="bi bi-hdd-network"></i> 集群节点</span></div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                        <tr><th>节点 ID</th><th>启动时间</th><th>状态</th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="node : ${cluster['nodes']}">
+                            <td th:text="${node['nodeId']}"></td>
+                            <td th:text="${node['startedAtText']}"></td>
+                            <td><span class="badge bg-success">在线</span></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(cluster['nodes'])}">
+                            <td colspan="3" class="text-center text-muted">未发现节点</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer text-muted" style="background:#fff;">
+                    本节点：<code th:text="${cluster['selfNode']}"></code>
+                    · 全集群路由在线：<b th:text="${cluster['routedOnlineUsers']}"></b>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header"><span><i class="bi bi-shield-exclamation"></i> 风控概览</span></div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        待处理风控事件：
+                        <span class="badge" th:classappend="${riskOpen} > 0 ? 'bg-danger' : 'bg-secondary'"
+                              th:text="${riskOpen}">0</span>
+                    </p>
+                    <a class="btn btn-sm btn-outline-primary" href="/admin/risk">
+                        <i class="bi bi-arrow-right"></i> 前往处置
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

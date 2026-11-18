@@ -1,0 +1,51 @@
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+dependency-reduced-pom.xml
+
+# ---- 生成代码（protobuf）----
+src/main/java/**/proto/
+**/generated-sources/
+
+# ---- 配置与密钥（严禁提交）----
+.env
+.env.local
+*.local.properties
+application-local.yml
+application-local.properties
+
+# ---- 部署生成物 / 开发证书 ----
+# 证书与私钥应由 gen-certs.sh 在目标环境生成，不入库（历史已跟踪的私钥需由仓库所有者执行 git rm --cached 轮换）
+nginx/certs/
+deploy/generated/
+
+# ---- 日志 ----
+logs/
+*.log
+*.log.*
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Python 脚本 ----
+*.py
+__pycache__/
+*.pyc
+
+# ---- 文档目录 ----
+docs/

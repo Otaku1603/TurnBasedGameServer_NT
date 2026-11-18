@@ -1,0 +1,16 @@
+target
+logs
+.git
+.idea
+*.iml
+tools
+docs
+# 配置与秘密不得进入镜像层（application-local.yml 含本机字面口令/JWT）
+**/application-local.yml
+**/application-local-*.yml
+.env
+.env.local
+deploy/.env
+# 开发自签证书与私钥不随镜像分发；部署时由 render_cluster.py/gen-certs.sh 生成
+nginx/certs
+*.log

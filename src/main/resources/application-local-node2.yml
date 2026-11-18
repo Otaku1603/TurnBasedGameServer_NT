@@ -1,0 +1,21 @@
+# ============================================================
+# 集群第二节点覆盖配置（叠加在 local 之上）
+# 启动：mvn spring-boot:run -Dspring-boot.run.profiles=local,local-node2
+# 或：  java -jar app.jar --spring.profiles.active=local,local-node2
+# 与 node-1 共享同一 MySQL / Redis；仅端口与节点 ID 不同。
+# ============================================================
+
+server:
+  port: ${APP_PORT:8082}
+
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8083}
+
+app:
+  netty:
+    # 本地双实例：node-2 默认用 9511，避免与 node-1 的 9510 冲突；
+    # 容器内由 NETTY_WS_PORT 环境变量覆盖（见 deploy/docker-compose.node2.yml）
+    ws-port: ${NETTY_WS_PORT:9511}
+  cluster:
+    node-id: ${NODE_ID:node-2}

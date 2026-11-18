@@ -1,0 +1,6 @@
+# 构建/运行脚本在 Linux 容器和 VM 中执行，必须保持 LF
+*.sh text eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.conf text eol=lf

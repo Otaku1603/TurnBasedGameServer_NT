@@ -1,0 +1,134 @@
+# ============================================================
+# TurnBasedGameServer_NT — 单节点 Compose（MySQL/Redis/Kafka/Nginx/node1）
+#   N 节点请使用 tools/render_cluster.py 生成显式编排
+#   前置：无需本地 JDK/Maven（多阶段构建在容器内完成）
+#   启动：docker compose up -d --build
+# ============================================================
+
+services:
+  mysql:
+    image: mysql:9
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD required (see .env.example)}"
+      MYSQL_DATABASE: "${DB_NAME:-turn_based_game_nt}"
+      MYSQL_USER: "${DB_USER:-tbg_nt}"
+      MYSQL_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD required (see .env.example)}"
+    # 有状态层只走 Compose 内网；不向宿主机/局域网发布端口
+    expose:
+      - "3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  kafka:
+    image: apache/kafka:4.4.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # 仅 Compose 内网监听；跨节点场景由 N 节点编排统一使用内部地址
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    expose:
+      - "9092"
+      - "9093"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  redis:
+    image: redis:8-alpine
+    # 有状态层只走 Compose 内网，必须带密码
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD required (see .env.example)}"]
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  node1:
+    hostname: node1
+    build:
+      context: .
+      args:
+        MAVEN_MIRROR_URL: "${MAVEN_MIRROR_URL:-}"
+    image: tbg-server:latest
+    environment:
+      # 非 local profile：不再加载 application-local.yml / 演示播种
+      SPRING_PROFILES_ACTIVE: "${APP_PROFILE:-cluster}"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: "${DB_NAME:-turn_based_game_nt}"
+      DB_USER: "${DB_USER:-tbg_nt}"
+      DB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD required (see .env.example)}"
+      SPRING_DATASOURCE_USERNAME: "${DB_USER:-tbg_nt}"
+      SPRING_DATASOURCE_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD required (see .env.example)}"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD required (see .env.example)}"
+      # 生产语义：关键路径 Redis 异常时失败关闭，而不是静默降级成本地单机
+      REDIS_ALLOW_DEGRADE: "false"
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET required (see .env.example)}"
+      NODE_ID: node-c1
+      # 集群部署开启严格配置审计（缺 JWT/DB 口令/NODE_ID 即拒绝启动）
+      APP_STRICT_CONFIG: "true"
+      # 部署环境关闭演示播种：不产生测试玩家弱口令
+      APP_SEED_DEMO: "false"
+      # 需管理员的环境显式开启；必须同时注入强随机 APP_ADMIN_PASSWORD
+      APP_BOOTSTRAP_ADMIN: "${APP_BOOTSTRAP_ADMIN:-true}"
+      APP_ADMIN_USERNAME: "${APP_ADMIN_USERNAME:-admin}"
+      # 开关为 true 但口令缺失时，StartupConfigAudit/AdminBootstrap 会拒绝启动
+      APP_ADMIN_PASSWORD: "${APP_ADMIN_PASSWORD:-}"
+      # Nginx TLS 终止，管理后台经 HTTPS 访问 → Cookie 加 Secure
+      ADMIN_COOKIE_SECURE: "true"
+      APP_PORT: "8080"
+      MANAGEMENT_PORT: "8081"
+      NETTY_WS_PORT: "9510"
+      NETTY_BUSINESS_QUEUE_CAPACITY: "${NETTY_BUSINESS_QUEUE_CAPACITY:-4096}"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_MODULITH_EVENTS_EXTERNALIZATION_ENABLED: "true"
+    # 调试/测试入口只绑本机回环；客户端一律经 Nginx 80/443
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8081"
+      - "127.0.0.1:9510:9510"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.30
+    # upstream 主机名解析失败时（节点重建窗口）自动重试，节点恢复后自愈
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - node1
+
+volumes:
+  mysql-data:
